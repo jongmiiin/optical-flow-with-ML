@@ -1,136 +1,96 @@
-import cv2
 import numpy as np
+import cv2
 import pandas as pd
+import mediapipe as mp
 import os
-from sklearn.cluster import KMeans
-import matplotlib.pyplot as plt
 
-# -----------------------
-# ✨ 1. Helper Functions
-# -----------------------
-def extract_optical_flow_features(video_path, video_id):
-    cap = cv2.VideoCapture(video_path)
-    ret, prev_frame = cap.read()
+cap = cv2.VideoCapture('02659_H_A_SY_C8.mp4')
+
+feature_params = dict(maxCorners=10,
+                      qualityLevel=0.05,
+                      minDistance=40,
+                      blockSize=7)
+
+lk_params = dict(winSize=(15, 15),
+                 maxLevel=0,
+                 criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+
+mp_pose = mp.solutions.pose
+pose = mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.5)
+
+ret, old_frame = cap.read()
+old_rgb = cv2.cvtColor(old_frame, cv2.COLOR_BGR2RGB)
+results = pose.process(old_rgb)
+
+height, width = old_frame.shape[:2]
+mask = np.zeros_like(old_frame)
+
+p0 = None
+if results.pose_landmarks:
+    nose = results.pose_landmarks.landmark[mp_pose.PoseLandmark.NOSE]
+    x, y = int(nose.x * width), int(nose.y * height)
+    roi_size = 40
+    x1, y1 = max(0, x - roi_size), max(0, y - roi_size)
+    x2, y2 = min(width, x + roi_size), min(height, y + roi_size)
+    head_roi = cv2.cvtColor(old_frame[y1:y2, x1:x2], cv2.COLOR_BGR2GRAY)
+    p0 = cv2.goodFeaturesToTrack(head_roi, mask=None, **feature_params)
+    if p0 is not None:
+        p0[:, 0, 0] += x1
+        p0[:, 0, 1] += y1
+
+old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
+vectors = []
+frame_id = 0
+
+while True:
+    ret, frame = cap.read()
     if not ret:
-        print(f"[ERROR] Can't read first frame from {video_path}")
-        return []
+        break
 
-    prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
-    features = []
-    frame_id = 0
+    frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = pose.process(frame_rgb)
 
-    while True:
-        ret, next_frame = cap.read()
-        if not ret:
-            break
+    if p0 is not None:
+        p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lk_params)
+        if p1 is not None and st is not None:
+            good_new = p1[st == 1]
+            good_old = p0[st == 1]
 
-        next_gray = cv2.cvtColor(next_frame, cv2.COLOR_BGR2GRAY)
+            for i, (new, old) in enumerate(zip(good_new, good_old)):
+                x0, y0 = old.ravel()
+                x1, y1 = new.ravel()
+                dx = x1 - x0
+                dy = y1 - y0
+                mag = np.sqrt(dx ** 2 + dy ** 2)
+                angle = np.arctan2(dy, dx)
+                vectors.append({
+                    'frame_id': frame_id,
+                    'point_id': i,
+                    'x0': x0, 'y0': y0, 'x1': x1, 'y1': y1,
+                    'dx': dx, 'dy': dy,
+                    'magnitude': mag,
+                    'angle': angle
+                })
 
-        # 1) 특징점 추출 (이전 프레임 기준)
-        p0 = cv2.goodFeaturesToTrack(
-            prev_gray,
-            maxCorners=100,
-            qualityLevel=0.3,
-            minDistance=7,
-            blockSize=7
-        )
+    if results.pose_landmarks:
+        nose = results.pose_landmarks.landmark[mp_pose.PoseLandmark.NOSE]
+        x, y = int(nose.x * width), int(nose.y * height)
+        roi_size = 40
+        x1, y1 = max(0, x - roi_size), max(0, y - roi_size)
+        x2, y2 = min(width, x + roi_size), min(height, y + roi_size)
+        head_roi = frame_gray[y1:y2, x1:x2]
+        p0 = cv2.goodFeaturesToTrack(head_roi, mask=None, **feature_params)
+        if p0 is not None:
+            p0[:, 0, 0] += x1
+            p0[:, 0, 1] += y1
 
-        if p0 is None:
-            prev_gray = next_gray
-            frame_id += 1
-            continue
+    old_gray = frame_gray.copy()
+    frame_id += 1
 
-        # 2) 루카스 카나데 Optical Flow 적용
-        p1, st, err = cv2.calcOpticalFlowPyrLK(prev_gray, next_gray, p0, None)
+cap.release()
+pose.close()
 
-        if p1 is None:
-            prev_gray = next_gray
-            frame_id += 1
-            continue
-
-        # 3) 벡터 계산
-        good_old = p0[st == 1]
-        good_new = p1[st == 1]
-
-        magnitudes = []
-        angles = []
-
-        for (old, new) in zip(good_old, good_new):
-            x0, y0 = old.ravel()
-            x1, y1 = new.ravel()
-            dx = x1 - x0
-            dy = y1 - y0
-            mag = np.sqrt(dx ** 2 + dy ** 2)
-            ang = np.arctan2(dy, dx)
-            magnitudes.append(mag)
-            angles.append(ang)
-
-        if magnitudes:
-            avg_mag = np.mean(magnitudes)
-            std_mag = np.std(magnitudes)
-            avg_ang = np.mean(angles)
-            features.append({
-                "video_id": video_id,
-                "frame_id": frame_id,
-                "avg_mag": avg_mag,
-                "std_mag": std_mag,
-                "avg_ang": avg_ang
-            })
-
-        prev_gray = next_gray
-        frame_id += 1
-
-    cap.release()
-    return features
-
-
-# -----------------------
-# 🌐 2. Main Optical Flow 추출
-# -----------------------
-VIDEO_DIR = "videos"  # 여기에 여러 개의 .mp4 영상 넣기
-OUTPUT_CSV = "optical_flow_features.csv"
-
-all_features = []
-
-for filename in os.listdir(VIDEO_DIR):
-    if filename.endswith(".mp4"):
-        video_path = os.path.join(VIDEO_DIR, filename)
-        video_id = os.path.splitext(filename)[0]
-        print(f"\u2705 Processing: {filename}")
-        features = extract_optical_flow_features(video_path, video_id)
-        all_features.extend(features)
-
-# DataFrame 저장
-if all_features:
-    df = pd.DataFrame(all_features)
-    df.to_csv(OUTPUT_CSV, index=False)
-    print(f"\n📄 Saved to {OUTPUT_CSV} (total rows: {len(df)})")
-
-    # -----------------------
-    # 🔮 3. KMeans Clustering 기반 낙상 분류 시도
-    # -----------------------
-    print("\n🔄 Running KMeans clustering...")
-    X = df[['avg_mag', 'std_mag', 'avg_ang']].values
-    kmeans = KMeans(n_clusters=2, random_state=42).fit(X)
-    df['cluster'] = kmeans.labels_
-
-    # 클러스터 기준 재정렬 (낙상 cluster가 평균 속도 큰 쪽)
-    cluster_stats = df.groupby('cluster')['avg_mag'].mean()
-    fall_cluster = cluster_stats.idxmax()
-    df['predicted_label'] = df['cluster'].apply(lambda x: 1 if x == fall_cluster else 0)
-
-    # 저장
-    df.to_csv("optical_flow_with_clusters.csv", index=False)
-    print("\ud83d\udcc4 Clustering result saved to optical_flow_with_clusters.csv")
-
-    # 시각화
-    plt.figure(figsize=(10, 6))
-    plt.scatter(df['avg_mag'], df['std_mag'], c=df['predicted_label'], cmap='coolwarm', alpha=0.6)
-    plt.xlabel("Average Magnitude")
-    plt.ylabel("Standard Deviation of Magnitude")
-    plt.title("Clustering Result: Fall vs Normal")
-    plt.grid(True)
-    plt.show()
-
-else:
-    print("\n[WARNING] No features extracted. Check your video files.")
+df = pd.DataFrame(vectors)
+df.to_csv('optical_flow_vectors.csv', index=False)
+print("저장 완료")
