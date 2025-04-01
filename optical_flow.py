@@ -2,29 +2,42 @@ import numpy as np
 import cv2
 import pandas as pd
 import mediapipe as mp
-import os
 
+# 영상 불러오기
 cap = cv2.VideoCapture('02659_H_A_SY_C8.mp4')
 
-feature_params = dict(maxCorners=10,
-                      qualityLevel=0.05,
-                      minDistance=40,
-                      blockSize=7)
+# 특징점 잡을 때 쓸 설정값
+feature_params = dict(
+    maxCorners=10,
+    qualityLevel=0.05,
+    minDistance=40,
+    blockSize=7
+)
 
-lk_params = dict(winSize=(15, 15),
-                 maxLevel=0,
-                 criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+# 옵티컬 플로우 계산할 때 쓸 설정값
+lk_params = dict(
+    winSize=(15, 15),
+    maxLevel=0,
+    criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03)
+)
 
+# 미디어파이프 포즈 추정기 세팅
 mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.5)
+pose = mp_pose.Pose(
+    static_image_mode=False,
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5
+)
 
+# 첫 프레임 읽고, 포즈 추정
 ret, old_frame = cap.read()
 old_rgb = cv2.cvtColor(old_frame, cv2.COLOR_BGR2RGB)
 results = pose.process(old_rgb)
 
+# 프레임 크기 저장
 height, width = old_frame.shape[:2]
-mask = np.zeros_like(old_frame)
 
+# 코 주변 영역에서 특징점 추출
 p0 = None
 if results.pose_landmarks:
     nose = results.pose_landmarks.landmark[mp_pose.PoseLandmark.NOSE]
@@ -38,19 +51,23 @@ if results.pose_landmarks:
         p0[:, 0, 0] += x1
         p0[:, 0, 1] += y1
 
+# 이전 프레임 gray로 저장
 old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
 vectors = []
 frame_id = 0
 
+# 프레임 루프 시작
 while True:
     ret, frame = cap.read()
     if not ret:
         break
 
+    # 현재 프레임 전처리
     frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results = pose.process(frame_rgb)
 
+    # 이전 프레임 기준으로 Optical Flow 계산
     if p0 is not None:
         p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lk_params)
         if p1 is not None and st is not None:
@@ -67,12 +84,14 @@ while True:
                 vectors.append({
                     'frame_id': frame_id,
                     'point_id': i,
-                    'x0': x0, 'y0': y0, 'x1': x1, 'y1': y1,
+                    'x0': x0, 'y0': y0,
+                    'x1': x1, 'y1': y1,
                     'dx': dx, 'dy': dy,
                     'magnitude': mag,
                     'angle': angle
                 })
 
+    # 다음 프레임 기준으로 다시 머리 영역에서 특징점 추출
     if results.pose_landmarks:
         nose = results.pose_landmarks.landmark[mp_pose.PoseLandmark.NOSE]
         x, y = int(nose.x * width), int(nose.y * height)
@@ -85,12 +104,15 @@ while True:
             p0[:, 0, 0] += x1
             p0[:, 0, 1] += y1
 
+    # 다음 프레임 처리를 위해 현재 프레임 저장
     old_gray = frame_gray.copy()
     frame_id += 1
 
+# 리소스 정리
 cap.release()
 pose.close()
 
+# 벡터 결과 저장
 df = pd.DataFrame(vectors)
 df.to_csv('optical_flow_vectors.csv', index=False)
 print("저장 완료")
