@@ -1,7 +1,7 @@
 import numpy as np
 import cv2 as cv
 
-cap = cv.VideoCapture('data\skate_board_fast.mp4')
+cap = cv.VideoCapture('data\ice.mp4')
 
 if not cap.isOpened():
     print("동영상 파일을 열 수 없습니다.")
@@ -11,10 +11,6 @@ if not cap.isOpened():
 frame_width = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
 fps = cap.get(cv.CAP_PROP_FPS)
-
-# 비디오 저장 설정 (코덱, 저장할 파일명 설정)
-fourcc = cv.VideoWriter_fourcc(*'XVID')  # 또는 'XVID', mp4v'MJPG' 가능
-out = cv.VideoWriter('.\output.avi', fourcc, fps, (frame_width, frame_height))
 
 
 # Lucas-Kanade Optical Flow 파라미터 설정
@@ -39,6 +35,8 @@ old_gray = cv.cvtColor(old_frame, cv.COLOR_BGR2GRAY)
 
 # 최초 추적 포인트: 격자 생성
 p0 = generate_grid_points(frame_width, frame_height, GRID_SPACING)
+
+frame_idx = 0  # 프레임 인덱스 초기화
 
 while True:
     ret, frame = cap.read()
@@ -72,10 +70,16 @@ while True:
     fall_candidates = angle_condition & speed_condition
     fall_ratio = np.mean(fall_candidates)
 
+    # 낙상 탐지 시 타임스탬프(초)와 낙상 벡터 출력
     if fall_ratio > 0.4:
+        timestamp = frame_idx / fps  # 현재 프레임의 초 단위 시간 계산
+        fall_vectors = motion_vectors[fall_candidates]
+        for vec in fall_vectors:
+            print(f"[낙상 탐지] 타임스탬프: {timestamp:.5f}초  dx: {vec[0]:.2f}, dy: {vec[1]:.2f}")
+
+        # 프레임에도 시각적으로 표시
         cv.putText(frame, "Fall Detected!", (50, 80),
                    cv.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 4)
-        print("낙상 탐지!")
     
   
     # Optical Flow 시각화
@@ -89,8 +93,7 @@ while True:
     cv.putText(frame, "Fall Detection System", (30, 40),
                cv.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
     
-    # 비디오 저장
-    out.write(frame)
+
 
     cv.imshow('Grid-based Lucas-Kanade Optical Flow', frame)
     if cv.waitKey(30) & 0xFF == 27:  # ESC 키 종료
@@ -98,7 +101,7 @@ while True:
 
     old_gray = frame_gray.copy()
     p0 = generate_grid_points(frame_width, frame_height, GRID_SPACING)  # 매 프레임 리셋
+    frame_idx += 1  # 프레임 인덱스 증가
 
 cap.release()
-out.release()  # VideoWriter 객체 해제
 cv.destroyAllWindows()
