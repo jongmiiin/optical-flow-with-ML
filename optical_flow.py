@@ -1,7 +1,7 @@
 import numpy as np
 import cv2 as cv
 
-cap = cv.VideoCapture('data\hospital.mp4')
+cap = cv.VideoCapture('data\skate_board_fast.mp4')
 
 if not cap.isOpened():
     print("동영상 파일을 열 수 없습니다.")
@@ -61,21 +61,33 @@ while True:
     motion_vectors = good_new - good_old
     magnitudes = np.linalg.norm(motion_vectors, axis=1)  # 벡터 크기
 
-    # 낙상 감지 기준: 평균 속도가 특정 값 이상 + 대부분 아래 방향
-    downward_movement = motion_vectors[:, 1] > 1.0  # y방향으로 크게 이동
     
-    if magnitudes.mean() > 2.0 and np.mean(downward_movement) > 0.5:
+    dx = motion_vectors[:, 0]
+    dy = motion_vectors[:, 1]
+    angles = np.degrees(np.arctan2(dy, dx))
+
+    # 낙상 판단 기준
+    angle_condition = (angles > -130) & (angles < -30)
+    speed_condition = magnitudes > 3.0
+    fall_candidates = angle_condition & speed_condition
+    fall_ratio = np.mean(fall_candidates)
+
+    if fall_ratio > 0.4:
         cv.putText(frame, "Fall Detected!", (50, 80),
                    cv.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 4)
         print("낙상 탐지!")
-
+    
   
-    # 궤적 잔상 없이 바로 그리기
+    # Optical Flow 시각화
     for new, old in zip(good_new, good_old):
         a, b = new.ravel()
         c, d = old.ravel()
         cv.line(frame, (int(c), int(d)), (int(a), int(b)), (0, 255, 0), 2)
         cv.circle(frame, (int(a), int(b)), 3, (0, 0, 255), -1)
+    
+    # 시스템 상태 표시
+    cv.putText(frame, "Fall Detection System", (30, 40),
+               cv.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
     
     # 비디오 저장
     out.write(frame)
