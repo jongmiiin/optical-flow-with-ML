@@ -76,32 +76,10 @@ while True:
         fall_vectors = motion_vectors[fall_candidates]
         for vec in fall_vectors:
             print(f"[낙상 탐지] 타임스탬프: {timestamp:.5f}초  dx: {vec[0]:.2f}, dy: {vec[1]:.2f}")
-
-        # 프레임에도 시각적으로 표시
-        cv.putText(frame, "Fall Detected!", (50, 80),
-                   cv.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 4)
     
-  
-    # Optical Flow 시각화
-    for new, old in zip(good_new, good_old):
-        a, b = new.ravel()
-        c, d = old.ravel()
-        cv.line(frame, (int(c), int(d)), (int(a), int(b)), (0, 255, 0), 2)
-        cv.circle(frame, (int(a), int(b)), 3, (0, 0, 255), -1)
-    
-    # 시스템 상태 표시
-    cv.putText(frame, "Fall Detection System", (30, 40),
-               cv.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
-    
-
-
-    cv.imshow('Grid-based Lucas-Kanade Optical Flow', frame)
-    if cv.waitKey(30) & 0xFF == 27:  # ESC 키 종료
-        break
 
     old_gray = frame_gray.copy()
     p0 = generate_grid_points(frame_width, frame_height, GRID_SPACING)  # 매 프레임 리셋
     frame_idx += 1  # 프레임 인덱스 증가
 
 cap.release()
-cv.destroyAllWindows()
