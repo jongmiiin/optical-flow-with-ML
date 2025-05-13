@@ -1,5 +1,6 @@
 import numpy as np
 import cv2 as cv
+import json
 
 cap = cv.VideoCapture('data\ice.mp4')
 
@@ -37,6 +38,7 @@ old_gray = cv.cvtColor(old_frame, cv.COLOR_BGR2GRAY)
 p0 = generate_grid_points(frame_width, frame_height, GRID_SPACING)
 
 frame_idx = 0  # 프레임 인덱스 초기화
+fall_data_list = []  # 낙상 정보 저장 리스트
 
 while True:
     ret, frame = cap.read()
@@ -70,19 +72,40 @@ while True:
     fall_candidates = angle_condition & speed_condition
     fall_ratio = np.mean(fall_candidates)
 
-    # 낙상 탐지 시 타임스탬프(초)와 낙상 벡터 출력
+    # 낙상 탐지 시 타임스탬프(초)와 낙상 벡터 저장
     if fall_ratio > 0.4:
         timestamp = frame_idx / fps  # 현재 프레임의 초 단위 시간 계산
         fall_vectors = motion_vectors[fall_candidates]
         fall_positions = good_old[fall_candidates]
+        count = len(fall_vectors) # 낙상 벡터 개수 
+        
+        fall_events = []
         for vec, pos in zip(fall_vectors, fall_positions):
             x, y = pos
             dx, dy = vec
-            print(f"[낙상 탐지]\n\t 타임스탬프: {timestamp:.5f}초 \n\t x: {x:.1f}, y: {y:.1f} \n\tdx: {dx:.2f}, dy: {dy:.2f}")
-    
+            
+            # 낙상시 좌표와 벡터 값을 저장
+            fall_events.append({
+                "position": {"x": round(float(x), 1), "y": round(float(y), 1)},
+                "vector": {"dx": round(float(dx), 2), "dy": round(float(dy), 2)}
+            })
+            print(f"[낙상 탐지]\n\t timestamp: {timestamp:.5f}초 \n\t count: {count:d} \n\t x: {x:.1f}, y: {y:.1f} \n\tdx: {dx:.2f}, dy: {dy:.2f}")
+        # 낙상 시간과 해당 값들을 저장
+        fall_data_list.append({
+            "timestamp": round(float(timestamp), 5),
+            "count": count,
+            "falls": fall_events
+        })
 
     old_gray = frame_gray.copy()
     p0 = generate_grid_points(frame_width, frame_height, GRID_SPACING)  # 매 프레임 리셋
     frame_idx += 1  # 프레임 인덱스 증가
 
 cap.release()
+
+
+# 결과를 JSON 파일로 저장
+with open("fall_detection_results.json", "w", encoding="utf-8") as f:
+    json.dump(fall_data_list, f, indent=2, ensure_ascii=False)
+
+print("fall_detection_results.json 파일에 저장완료")
