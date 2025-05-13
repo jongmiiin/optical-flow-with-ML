@@ -74,8 +74,11 @@ while True:
     if fall_ratio > 0.4:
         timestamp = frame_idx / fps  # 현재 프레임의 초 단위 시간 계산
         fall_vectors = motion_vectors[fall_candidates]
-        for vec in fall_vectors:
-            print(f"[낙상 탐지] 타임스탬프: {timestamp:.5f}초  dx: {vec[0]:.2f}, dy: {vec[1]:.2f}")
+        fall_positions = good_old[fall_candidates]
+        for vec, pos in zip(fall_vectors, fall_positions):
+            x, y = pos
+            dx, dy = vec
+            print(f"[낙상 탐지]\n\t 타임스탬프: {timestamp:.5f}초 \n\t x: {x:.1f}, y: {y:.1f} \n\tdx: {dx:.2f}, dy: {dy:.2f}")
     
 
     old_gray = frame_gray.copy()
