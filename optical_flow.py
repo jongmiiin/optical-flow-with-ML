@@ -77,6 +77,18 @@ while True:
         timestamp = frame_idx / fps  # 현재 프레임의 초 단위 시간 계산
         fall_vectors = motion_vectors[fall_candidates]
         fall_positions = good_old[fall_candidates]
+        fall_angles = angles[fall_candidates]
+        
+        
+        # 방향 유사성 필터링
+        mean_angle = np.mean(fall_angles)
+        angle_diff = np.abs(fall_angles - mean_angle)
+        angle_diff = np.where(angle_diff > 180, 360 - angle_diff, angle_diff)  # 각도 wrap-around
+        direction_filter = angle_diff < 40  # ±40도 이내 유지
+        
+        fall_vectors = fall_vectors[direction_filter]
+        fall_positions = fall_positions[direction_filter]
+        
         count = len(fall_vectors) # 낙상 벡터 개수 
         
         fall_events = []
