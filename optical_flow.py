@@ -40,6 +40,8 @@ p0 = generate_grid_points(frame_width, frame_height, GRID_SPACING)
 frame_idx = 0  # 프레임 인덱스 초기화
 fall_data_list = []  # 낙상 정보 저장 리스트
 
+sample_id = 1 # JSON에 넣을 ID
+
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -68,50 +70,75 @@ while True:
 
     # 낙상 판단 기준
     angle_condition = (angles > -130) & (angles < -30)
-    speed_condition = magnitudes > 3.0
+    speed_condition = magnitudes > 5.0
     fall_candidates = angle_condition & speed_condition
-    fall_ratio = np.mean(fall_candidates)
 
     # 낙상 탐지 시 타임스탬프(초)와 낙상 벡터 저장
-    if fall_ratio > 0.4:
-        timestamp = frame_idx / fps  # 현재 프레임의 초 단위 시간 계산
-        fall_vectors = motion_vectors[fall_candidates]
-        fall_positions = good_old[fall_candidates]
-        fall_angles = angles[fall_candidates]
+    timestamp = frame_idx / fps  # 현재 프레임의 초 단위 시간 계산
+    fall_vectors = motion_vectors[fall_candidates]
+    fall_positions = good_old[fall_candidates]
+    fall_angles = angles[fall_candidates]
+    
+    
+    # 방향 유사성 필터링
+    # 평균 방향에서 ±40도 이상 벗어난 벡터는 잡음으로 제거
+    mean_angle = np.mean(fall_angles)
+    angle_diff = np.abs(fall_angles - mean_angle)
+    angle_diff = np.where(angle_diff > 180, 360 - angle_diff, angle_diff)  # 각도 wrap-around
+    direction_filter = angle_diff < 40  # ±40도 이내 유지
+    
+    fall_vectors = fall_vectors[direction_filter]
+    fall_positions = fall_positions[direction_filter]
+    
+    count = len(fall_vectors) # 낙상 벡터 개수 
+    
+    # 벡터 성분 분리
+    vx_f = fall_vectors[:,0] if count>0 else np.array([])
+    vy_f = fall_vectors[:,1] if count>0 else np.array([])
+    sp_f = np.linalg.norm(fall_vectors, axis=1) if count>0 else np.array([])
+    ang_f= np.degrees(np.arctan2(vy_f, vx_f)) if count>0 else np.array([])
+
+    # 통계 계산
+    mean_vx    = float(vx_f.mean()) if count>0 else 0.0
+    std_vx     = float(vx_f.std(ddof=0)) if count>0 else 0.0
+    mean_vy    = float(vy_f.mean()) if count>0 else 0.0
+    std_vy     = float(vy_f.std(ddof=0)) if count>0 else 0.0
+    mean_speed = float(sp_f.mean()) if count>0 else 0.0
+    std_speed  = float(sp_f.std(ddof=0)) if count>0 else 0.0
+    mean_ang   = float(ang_f.mean()) if count>0 else 0.0
+    std_ang    = float(ang_f.std(ddof=0)) if count>0 else 0.0
+    
+    fall_events = []
+    vec_count = 0
+    for vec, pos in zip(fall_vectors, fall_positions):
+        vec_count+=1
+        x, y = pos
+        dx, dy = vec
         
-        
-        # 방향 유사성 필터링
-        mean_angle = np.mean(fall_angles)
-        angle_diff = np.abs(fall_angles - mean_angle)
-        angle_diff = np.where(angle_diff > 180, 360 - angle_diff, angle_diff)  # 각도 wrap-around
-        direction_filter = angle_diff < 40  # ±40도 이내 유지
-        
-        fall_vectors = fall_vectors[direction_filter]
-        fall_positions = fall_positions[direction_filter]
-        
-        count = len(fall_vectors) # 낙상 벡터 개수 
-        
-        fall_events = []
-        for vec, pos in zip(fall_vectors, fall_positions):
-            x, y = pos
-            dx, dy = vec
-            
-            # 낙상시 좌표와 벡터 값을 저장
-            fall_events.append({
-                "position": {"x": round(float(x), 1), "y": round(float(y), 1)},
-                "vector": {"dx": round(float(dx), 2), "dy": round(float(dy), 2)}
-            })
-            print(f"[낙상 탐지]\n\t timestamp: {timestamp:.5f}초 \n\t count: {count:d} \n\t x: {x:.1f}, y: {y:.1f} \n\tdx: {dx:.2f}, dy: {dy:.2f}")
-        # 낙상 시간과 해당 값들을 저장
-        fall_data_list.append({
-            "timestamp": round(float(timestamp), 5),
-            "count": count,
-            "falls": fall_events
+        # 낙상시 좌표와 벡터 값을 저장
+        fall_events.append({
+            "vec_num": vec_count,
+            "mean_vx":      round(mean_vx, 2),
+            "std_vx":       round(std_vx, 2),
+            "mean_vy":      round(mean_vy, 2),
+            "std_vy":       round(std_vy, 2),
+            "mean_speed":   round(mean_speed, 2),
+            "std_speed":    round(std_speed, 2),
+            "mean_angle":   round(mean_ang, 2),
+            "std_angle":    round(std_ang, 2),
         })
+        print(f"[낙상 탐지]\n\t timestamp: {timestamp:.5f}초 \n\t count: {count:d} \n\t x: {x:.1f}, y: {y:.1f} \n\tdx: {dx:.2f}, dy: {dy:.2f}")
+    # 낙상 시간과 해당 값들을 저장
+    fall_data_list.append({
+        "sample_id": sample_id,
+        "count": count,
+        "falls": fall_events
+    })
 
     old_gray = frame_gray.copy()
     p0 = generate_grid_points(frame_width, frame_height, GRID_SPACING)  # 매 프레임 리셋
     frame_idx += 1  # 프레임 인덱스 증가
+    sample_id += 1
 
 cap.release()
 
