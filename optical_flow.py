@@ -2,7 +2,7 @@ import numpy as np
 import cv2 as cv
 import json
 
-cap = cv.VideoCapture('data\ice.mp4')
+cap = cv.VideoCapture('data/ice.mp4')
 
 if not cap.isOpened():
     print("동영상 파일을 열 수 없습니다.")
@@ -40,7 +40,7 @@ p0 = generate_grid_points(frame_width, frame_height, GRID_SPACING)
 frame_idx = 0  # 프레임 인덱스 초기화
 fall_data_list = []  # 낙상 정보 저장 리스트
 
-sample_id = 1 # JSON에 넣을 ID
+frame_num = 1 # JSON에 넣을 ID
 
 while True:
     ret, frame = cap.read()
@@ -108,37 +108,23 @@ while True:
     mean_ang   = float(ang_f.mean()) if count>0 else 0.0
     std_ang    = float(ang_f.std(ddof=0)) if count>0 else 0.0
     
-    fall_events = []
-    vec_count = 0
-    for vec, pos in zip(fall_vectors, fall_positions):
-        vec_count+=1
-        x, y = pos
-        dx, dy = vec
-        
-        # 낙상시 좌표와 벡터 값을 저장
-        fall_events.append({
-            "vec_num": vec_count,
-            "mean_vx":      round(mean_vx, 2),
-            "std_vx":       round(std_vx, 2),
-            "mean_vy":      round(mean_vy, 2),
-            "std_vy":       round(std_vy, 2),
-            "mean_speed":   round(mean_speed, 2),
-            "std_speed":    round(std_speed, 2),
-            "mean_angle":   round(mean_ang, 2),
-            "std_angle":    round(std_ang, 2),
-        })
-        print(f"[낙상 탐지]\n\t timestamp: {timestamp:.5f}초 \n\t count: {count:d} \n\t x: {x:.1f}, y: {y:.1f} \n\tdx: {dx:.2f}, dy: {dy:.2f}")
     # 낙상 시간과 해당 값들을 저장
     fall_data_list.append({
-        "sample_id": sample_id,
+        "frame_num": frame_num,
         "count": count,
-        "falls": fall_events
+        "mean_vx":      round(mean_vx, 2),
+        "std_vx":       round(std_vx, 2),
+        "mean_vy":      round(mean_vy, 2),
+        "std_vy":       round(std_vy, 2),
+        "mean_speed":   round(mean_speed, 2),
+        "std_speed":    round(std_speed, 2),
+        "mean_angle":   round(mean_ang, 2),
+        "std_angle":    round(std_ang, 2),
     })
 
     old_gray = frame_gray.copy()
     p0 = generate_grid_points(frame_width, frame_height, GRID_SPACING)  # 매 프레임 리셋
-    frame_idx += 1  # 프레임 인덱스 증가
-    sample_id += 1
+    frame_num += 1  # 프레임 인덱스 증가
 
 cap.release()
 
