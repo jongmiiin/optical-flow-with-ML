@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fall Detection System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="wrapper">
+    <!-- 헤더: 제목 + 모드 토글 + 파일 입력/검사 -->
+    <header class="header">
+      <div class="header-title">
+        <h1>Fall Detection System</h1>
+      </div>
+      <div class="header-menu">
+        <button id="liveBtn" class="toggle-btn active">LIVE</button>
+        <button id="videoBtn" class="toggle-btn">VIDEO</button>
+        <input type="file" id="videoFile" accept="video/*" class="file-input hidden" />
+        <button id="detectVideoBtn" class="detect-btn hidden">검사</button>
+      </div>
+    </header>
+
+    <!-- 본문: 좌측 비디오 영역, 우측 프리뷰+로그 -->
+    <div class="content">
+      <div class="video-container">
+        <video id="liveVideo" autoplay playsinline class="hidden"></video>
+        <video id="videoPlayer" controls class="hidden"></video>
+        <div id="videoPlaceholder" class="video-placeholder">Playing . . .</div>
+      </div>
+      <div class="side-container">
+        <div class="preview-box">
+          <img id="previewImg" src="" alt="스냅샷 미리보기" />
+          <span id="previewPlaceholder" class="placeholder">로그를 클릭하세요</span>
+        </div>
+        <div class="log-box">
+          <h2>Detection Log</h2>
+          <ul id="logList"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
