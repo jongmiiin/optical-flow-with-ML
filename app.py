@@ -1,3 +1,4 @@
+# app.py
 import os
 import uuid
 import datetime
@@ -6,6 +7,7 @@ import shutil
 from flask import Flask, request, jsonify, render_template, url_for, send_from_directory
 import cv2
 import numpy as np
+import optical_flow
 from optical_flow import detect_fall
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -18,6 +20,10 @@ def index():
 # LIVE 모드 낙상 감지
 @app.route('/api/live-detect', methods=['POST'])
 def live_detect():
+    # Optical Flow 상태 초기화
+    optical_flow.prev_gray = None
+
+    # 프레임 수신 및 디코딩
     data = request.data
     nparr = np.frombuffer(data, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -28,10 +34,19 @@ def live_detect():
     if detected:
         ts = datetime.datetime.now().strftime('%H:%M:%S')
         fname = f"{uuid.uuid4().hex}.jpg"
-        snap_dir = os.path.join(app.static_folder, 'snapshots')
+        snap_dir = os.path.join(app.root_path, 'static', 'snapshots')
         os.makedirs(snap_dir, exist_ok=True)
         path = os.path.join(snap_dir, fname)
-        cv2.imwrite(path, annotated)
+        # imencode + Python I/O로 저장
+        ret, buf = cv2.imencode('.jpg', annotated)
+        if ret:
+            try:
+                with open(path, 'wb') as f:
+                    f.write(buf.tobytes())
+            except Exception as e:
+                app.logger.error(f"Snapshot write failed: {path}, error: {e}")
+        else:
+            app.logger.error(f"Snapshot encode failed: {path}")
         return jsonify([{
             'timestamp': ts,
             'info': '낙상 감지',
@@ -42,16 +57,20 @@ def live_detect():
 # VIDEO 모드 낙상 감지
 @app.route('/api/video-detect', methods=['POST'])
 def video_detect():
+    # Optical Flow 상태 초기화
+    optical_flow.prev_gray = None
+
     vid = request.files.get('video')
     if not vid:
         return jsonify({'error': 'no file'}), 400
 
     # 디렉터리 준비
-    uploads_dir = os.path.join(app.static_folder, 'uploads')
-    tmp_dir = os.path.join(uploads_dir, 'tmp')
-    proc_dir = os.path.join(uploads_dir, 'processed')
-    os.makedirs(tmp_dir, exist_ok=True)
-    os.makedirs(proc_dir, exist_ok=True)
+    uploads_root = os.path.join(app.static_folder, 'uploads')
+    tmp_dir = os.path.join(uploads_root, 'tmp')
+    proc_dir = os.path.join(uploads_root, 'processed')
+    snap_dir = os.path.join(app.root_path, 'static', 'snapshots')
+    for d in (tmp_dir, proc_dir, snap_dir):
+        os.makedirs(d, exist_ok=True)
 
     # 원본 저장
     orig_ext = os.path.splitext(vid.filename)[1].lower() or '.mp4'
@@ -59,85 +78,78 @@ def video_detect():
     tmp_path = os.path.join(tmp_dir, f"{base}{orig_ext}")
     vid.save(tmp_path)
 
-    # 프레임별 어노테이션
-    raw_mp4 = os.path.join(proc_dir, f"{base}_raw.mp4")
-    cap = cv2.VideoCapture(tmp_path)
+    logs = []
+    frame_idx = 0
     annotated_input = tmp_path
+
+    # 프레임별 검사 및 어노테이션
+    cap = cv2.VideoCapture(tmp_path)
     if cap.isOpened():
         fps = cap.get(cv2.CAP_PROP_FPS) or 20
         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        writer = cv2.VideoWriter(raw_mp4, cv2.VideoWriter_fourcc(*'avc1'), fps, (w, h))
+        raw_mp4 = os.path.join(proc_dir, f"{base}_raw.mp4")
+        writer = cv2.VideoWriter(raw_mp4,
+                                 cv2.VideoWriter_fourcc(*'avc1'),
+                                 fps, (w, h))
         if writer.isOpened():
             while True:
                 ret, frame = cap.read()
                 if not ret:
                     break
                 detected, vis = detect_fall(frame)
+                if detected:
+                    ts = str(datetime.timedelta(seconds=frame_idx / fps))[:8]
+                    snap_fname = f"{uuid.uuid4().hex}.jpg"
+                    snap_path = os.path.join(snap_dir, snap_fname)
+                    ret2, buf2 = cv2.imencode('.jpg', vis)
+                    if ret2:
+                        try:
+                            with open(snap_path, 'wb') as f:
+                                f.write(buf2.tobytes())
+                        except Exception as e:
+                            app.logger.error(f"Snapshot write failed: {snap_path}, error: {e}")
+                    else:
+                        app.logger.error(f"Snapshot encode failed: {snap_path}")
+                    logs.append({
+                        'timestamp': ts,
+                        'info': '낙상 감지',
+                        'imageUrl': url_for('static', filename=f'snapshots/{snap_fname}')
+                    })
                 writer.write(vis)
+                frame_idx += 1
             writer.release()
             annotated_input = raw_mp4
         cap.release()
-    else:
-        cap.release()
 
-    # H.264 Baseline 인코딩
+    # H.264 Baseline + faststart 인코딩
     encoded_mp4 = os.path.join(proc_dir, f"{base}.mp4")
+    final_filename = os.path.basename(annotated_input)
     try:
         subprocess.run([
-            'ffmpeg', '-y',
-            '-i', annotated_input,
-            '-c:v', 'libx264',
-            '-profile:v', 'baseline',
-            '-level', '3.0',
-            '-pix_fmt', 'yuv420p',
-            '-c:a', 'aac',
-            '-movflags', '+faststart',
+            'ffmpeg', '-y', '-i', annotated_input,
+            '-c:v', 'libx264', '-profile:v', 'baseline', '-level', '3.0',
+            '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart',
             encoded_mp4
         ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if os.path.exists(encoded_mp4):
-            final_filename = os.path.basename(encoded_mp4)
-        else:
-            raise RuntimeError("Encoded file not found")
+        final_filename = os.path.basename(encoded_mp4)
+        if annotated_input != tmp_path:
+            os.remove(annotated_input)
     except Exception as e:
-        app.logger.error(f"FFmpeg encoding failed: {e}")
-        # 원본 복사
-        fallback_path = os.path.join(proc_dir, f"{base}{orig_ext}")
-        shutil.copy(tmp_path, fallback_path)
-        final_filename = os.path.basename(fallback_path)
+        app.logger.warning(f"FFmpeg encoding failed: {e}")
 
     # 임시 파일 정리
     try:
         os.remove(tmp_path)
     except OSError:
         pass
-    if os.path.exists(raw_mp4):
-        try:
-            os.remove(raw_mp4)
-        except OSError:
-            pass
-
-    # WebM 변환 (선택)
-    webm_path = os.path.join(proc_dir, f"{base}.webm")
-    try:
-        subprocess.run([
-            'ffmpeg', '-y',
-            '-i', os.path.join(proc_dir, final_filename),
-            '-c:v', 'libvpx',
-            '-b:v', '1M',
-            '-c:a', 'libvorbis',
-            webm_path
-        ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        final_filename = os.path.basename(webm_path)
-    except Exception as e:
-        app.logger.warning(f"WebM conversion failed: {e}")
 
     return jsonify({
-        'logs': [],
+        'logs': logs,
         'processedVideoUrl': url_for('serve_uploads', filename=f'processed/{final_filename}')
     })
 
-# uploads 서빙
+# uploads 폴더 서빙
 @app.route('/uploads/<path:filename>')
 def serve_uploads(filename):
     return send_from_directory(os.path.join(app.static_folder, 'uploads'), filename)
