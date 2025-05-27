@@ -1,0 +1,100 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: sans-serif; background: #f5f5f5; color: #333; }
+
+.wrapper {
+  width: 90%; max-width: 1500px;
+  margin: 20px auto;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* 헤더 */
+.header { display: flex; flex-direction: column; }
+.header-title { background: #ccc; padding: 10px 20px; }
+.header-title h1 { font-size: 1.2rem; }
+
+.header-menu {
+  display: flex; align-items: center;
+  background: #ddd; border-bottom: 1px solid #bbb;
+  padding: 5px 20px;
+}
+.toggle-btn {
+  background: #eee; border: none; border-radius: 15px;
+  padding: 5px 15px; margin-right: 10px;
+  font-weight: bold; cursor: pointer;
+}
+.toggle-btn.active { background: #fff; }
+
+.file-input { margin-left: auto; }
+.detect-btn {
+  margin-left: 10px; padding: 5px 12px;
+  border: none; border-radius: 4px;
+  background: #888; color: #fff;
+  cursor: pointer;
+}
+.hidden { display: none; }
+
+/* 본문 레이아웃 */
+.content {
+  display: flex; padding: 20px; gap: 20px;
+}
+.video-container {
+  flex: 2;
+  position: relative;
+  background: #000;
+  aspect-ratio: 16/9;
+  overflow: hidden;
+}
+.video-container video,
+.video-placeholder {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+}
+.video-placeholder {
+  top: 50%; left: 50%; transform: translate(-50%,-50%);
+  color: #999; font-size: 1.2rem;
+}
+
+/* 우측 프리뷰 + 로그 */
+.side-container {
+  flex: 1; display: flex; flex-direction: column; gap: 10px;
+}
+.preview-box {
+  flex: 2;
+  border: 1px solid #ddd; border-radius: 4px;
+  background: #fafafa;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.preview-box img { max-width: 100%; max-height: 100%; display: none; }
+.preview-box .placeholder {
+  position: absolute; color: #999; font-size: 0.9rem;
+}
+
+.log-box {
+  flex: 1;
+  border: 1px solid #ddd; border-radius: 4px;
+  padding: 10px;
+  /* 높이 제한 및 스크롤 추가 */
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+.log-box h2 { font-size: 1rem; margin-bottom: 8px; }
+.log-box ul { list-style: none; }
+.log-box li {
+  padding: 4px; border-radius: 2px;
+  cursor: pointer; font-size: 0.9rem;
+}
+.log-box li:hover { background: #f0f0f0; }
+
+/* 로그 리스트(inner ul)에 추가적인 스크롤 적용 */
+#logList {
+  max-height: 230px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
