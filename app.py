@@ -90,7 +90,7 @@ def video_detect():
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         raw_mp4 = os.path.join(proc_dir, f"{base}_raw.mp4")
         writer = cv2.VideoWriter(raw_mp4,
-                                 cv2.VideoWriter_fourcc(*'avc1'),
+                                 cv2.VideoWriter_fourcc(*'mp4v'),
                                  fps, (w, h))
         if writer.isOpened():
             while True:
