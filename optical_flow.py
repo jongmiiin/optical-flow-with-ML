@@ -5,6 +5,8 @@ import numpy as np
 import pickle
 from pathlib import Path
 
+debug = False
+
 # ───────────────────────────────────────────────────────────────────────────
 # 1) Lucas-Kanade 옵티컬 플로우 파라미터 (원본 그대로)
 lk_params = dict(
@@ -52,7 +54,23 @@ def compute_of_stats_from_array(gray_frames: np.ndarray):
             good_old = p0[good].reshape(-1, 2)
             good_new = p1[good].reshape(-1, 2)
             mv = good_new - good_old    # (M, 2)
-            if mv.shape[0] > 0:
+            if debug:
+                print(f"[Frame {i}] 전체 벡터 수: {mv.shape[0]}")
+            dx, dy = mv[:,0], mv[:,1]
+            angs = np.degrees(np.arctan2(dy, dx))
+            mask = (angs>-130)&(angs<-30)&(np.linalg.norm(mv,axis=1)>7)
+            mv = mv[mask]
+            if debug:
+                print(f"[Frame {i}] 1차 필터 통과 벡터 수: {mv.shape[0]}")
+            if mv.size:
+                ang2 = np.degrees(np.arctan2(mv[:,1], mv[:,0]))
+                ma = ang2.mean(); df = np.abs(ang2-ma)
+                df = np.where(df>180,360-df,df)
+                mv = mv[df<50]
+                if debug:
+                    print(f"[Frame {i}] 2차 필터 통과 벡터 수: {mv.shape[0]}")
+            cnt = mv.shape[0]
+            if cnt:
                 vx, vy = mv[:, 0], mv[:, 1]           # 속도 성분 x, y
                 sp = np.linalg.norm(mv, axis=1)       # 속도 크기
                 ang3 = np.degrees(np.arctan2(vy, vx)) # 방향(각도)
