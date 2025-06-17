@@ -74,6 +74,13 @@ cd web_system
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 python app.py
+
+#conda
+conda create -n fall-env python=3.11
+conda activate fall-env
+cd web_system
+pip install -r requirements.txt
+python app.py
 ```
 
 * 이후 웹 접속 → 영상 업로드 → 낙상 판독 확인 가능
