@@ -110,11 +110,11 @@ python app.py
 
 
 * **출력 예시**:
-* 낙상:
-![image](https://github.com/user-attachments/assets/ba82d1f7-1607-45ab-8770-51030c6d12fc)
+ * 낙상:
+ ![image](https://github.com/user-attachments/assets/ba82d1f7-1607-45ab-8770-51030c6d12fc)
 
-* 비낙상:
-![image](https://github.com/user-attachments/assets/f43e1371-5a16-4618-9196-e8294fe6cfc1)
+ * 비낙상:
+ ![image](https://github.com/user-attachments/assets/f43e1371-5a16-4618-9196-e8294fe6cfc1)
 
 
 ---
