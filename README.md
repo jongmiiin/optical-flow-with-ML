@@ -126,7 +126,7 @@ python app.py
 
 ---
 
-## 8. 참고자료 & 라이선스 (References & License)
+## 📚 8. 참고자료 & 라이선스 (References & License)
 
 * **데이터**:
 
