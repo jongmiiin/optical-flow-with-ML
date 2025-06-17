@@ -1,6 +1,6 @@
 # 🚑 Optical Flow와 머신러닝 기반 실시간 낙상 판독 시스템
 
-## 1. 프로젝트 개요 (Overview)
+## 📜 1. 프로젝트 개요 (Overview)
 
 * **목적**: 노인의 낙상 사고를 실시간으로 감지, 조기 경고 및 이후 대응 강화
 * **동기**: 고령자 낙상사고는 매년 전체 고령자 안전사고의 60% 이상을 차지하며, 낙상사고 비율도 지속적으로 증가하고 있음
@@ -12,7 +12,7 @@
 
 ---
 
-## 2. 🏆 시스템 성능 요약 및 주요 기능 (System Performance & Features)
+## 🏆 2.시스템 성능 요약 및 주요 기능 (System Performance & Features)
 
 * **CSV 요약**: 영상 한 개를 단 몇 KB의 CSV 한 줄로 변환
 * **실시간 처리 속도**: 3840*2160 60fps mp4 10초 영상을 8초 내 처리 (gray 변환 → Optical Flow → 낙상 판독)
@@ -23,7 +23,7 @@
 
 ---
 
-## 3. 📂 디렉터리 구조 (Project Structure)
+## 📂 3.디렉터리 구조 (Project Structure)
 
 ```
 .
@@ -49,7 +49,7 @@
 
 ---
 
-## 4. 🛠 web_system 설치 및 실행 (Installation & Usage)
+## 🛠 4. web_system 설치 및 실행 (Installation & Usage)
 
 1. `requirements.txt` 생성 가이드:
 
