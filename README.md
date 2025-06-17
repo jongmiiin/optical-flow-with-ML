@@ -14,8 +14,8 @@
 
 ## 2. 🏆 시스템 성능 요약 및 주요 기능 (System Performance & Features)
 
-* **CSV 요약**: 3840×2160 해상도, 60fps 10초짜리 영상 한 개를 단 몇 KB의 CSV 한 줄로 변환
-* **실시간 처리 속도**: 3840\*2160 60fps mp4 10초 영상을 8초 내 처리 (gray 변환 → Optical Flow → 낙상 판독)
+* **CSV 요약**: 영상 한 개를 단 몇 KB의 CSV 한 줄로 변환
+* **실시간 처리 속도**: 3840*2160 60fps mp4 10초 영상을 8초 내 처리 (gray 변환 → Optical Flow → 낙상 판독)
 * **모델 정확도**:
 
   * XGBoost: 81.8%
@@ -99,9 +99,8 @@ python app.py
 
 ## 🔧 7. 향후 계획 (Future Work)
 
-* **조명 변화 대응**: dynamic OF 등 기술 추가
 * **라이브 웹캠 버전**: `web_system/app.py`에서 웹캠 연결만으로 작동하도록 변경
-* **엣지 배포 & 경량화**: Mobile/Edge 디바이스 대응 및 모델 경량화
+* **조명 변화 대응**: 밝기 보정
 
 ---
 
