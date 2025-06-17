@@ -1,57 +1,23 @@
 # app.py
 import os
-import math
-import uuid
-import datetime
-import subprocess
-import shutil
 from flask import Flask, request, jsonify, render_template, url_for, send_from_directory, Response, stream_with_context
-import cv2
 import numpy as np
-import optical_flow
 import ffmpeg
 from fall_detect import (
-    load_grayscale_raw,
-    compute_of_sequence,
-    load_model_and_scaler,
-    detect_falls_in_sequence,
-    push_new_frame
+    push_new_frame,
+    reset_global
 )
 
-model, scaler, device = load_model_and_scaler('tcn_model_state.pth', 'scaler.pkl')
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
 ORIGIN_DIR    = os.path.join(app.root_path, 'static', 'uploads', 'origin')
-FPS           = 30
 
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/api/live-reset', methods=['POST'])
-def live_reset():
-    optical_flow.prev_gray = None
-    optical_flow.stats_buffer = []
-    return jsonify({'status': 'ok', 'message': 'session reset'}), 200
-
-
-# @app.route('/api/detect-video', methods=['POST'])
-# def detect_video():
-#     # raw gray 파일 로드
-#     frames = load_grayscale_raw('static/uploads/grayscale/output.gray')
-
-#     of_features = compute_of_sequence(frames)
-
-#     result = detect_falls_in_sequence(of_features, model, scaler, device)
-#     for idx, fall in enumerate(result):
-#         print(f'Window {idx}: {fall}')
-
-#     return jsonify({'windows': 1}), 200
-
-
-# ※ /api/video-detect 부분이 있으면 모두 삭제하거나 주석 처리하세요.
 
 @app.route('/uploads/<path:filename>')
 def serve_uploads(filename):
@@ -100,18 +66,19 @@ def detect_video():
             frame = np.frombuffer(in_bytes, np.uint8).reshape((720, 1080))
             try:
                 pred = push_new_frame(idx, frame)
-                if pred == 1:
-                    timestamp = round(idx / 30, 2)
-                    yield f'data: {{"frame": {idx}, "time": {timestamp}}}\n\n'
+                timestamp = round(idx / 30, 2)
+                yield f'data: {{"pred":{pred}, "frame": {idx}, "time": {timestamp}}}\n\n'
             except IndexError:
                 pass
             idx += 1
         process.wait()
+        reset_global()
         yield 'event: done\ndata: {}\n\n'
 
     resp = Response(stream_with_context(generate()), mimetype='text/event-stream')
     resp.headers['Cache-Control'] = 'no-cache'
     resp.headers['X-Accel-Buffering'] = 'no'
+
 
     return resp
 

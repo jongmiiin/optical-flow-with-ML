@@ -18,6 +18,9 @@ const POLL_INTERVAL = 200; // ms 단위(=0.2초)
 const BUFFER_DELAY  = ((WINDOW_SIZE - 1) * (POLL_INTERVAL / 1000)).toFixed(2); 
 
 let fallCount = 0;  // 누적된 낙상 탐지 횟수
+const predBuffer = [];
+const BUFFER_SIZE = 5;
+const THRESHOLD = 0.8;
 
 // 캔버스: 필요한 시점에만 DOM에 붙이고 사용
 const canvas = document.createElement('canvas');
@@ -30,8 +33,6 @@ function setMode(mode) {
     liveInterval = null;
   }
 
-  // 2) 서버 상태 리셋
-  fetch('/api/live-reset', { method: 'POST' }).catch(console.warn);
 
   // 3) UI 초깃값: 모두 숨김
   liveVideo.classList.add('hidden');
@@ -57,11 +58,7 @@ function setMode(mode) {
     alert('업로드 실패'); 
     return; 
   }
-
-
 }
-
-  
   if (mode === 'live') {
     // ───────────────── LIVE 모드 ─────────────────
     currentMode = 'live';
@@ -120,12 +117,29 @@ function setMode(mode) {
 
       eventSource.onmessage = function(event) {
         const data = JSON.parse(event.data);
+        const pred = data.pred;
+        predBuffer.push(pred);
+        if (predBuffer.length > BUFFER_SIZE) predBuffer.shift();
+        if (!pred) return;
         const time = parseFloat(data.time);
         const startTime = Math.max(0, time - 1.5);
         fallCount += 1;
-
+        
         const li = document.createElement('li');
-        li.textContent = `⚠ ${fallCount}번째 낙상 주의: ${startTime.toFixed(2)}s ~ ${time.toFixed(2)}s`;
+        if (predBuffer.length === BUFFER_SIZE) {
+          const sum = predBuffer.reduce((a, b) => a + b, 0);
+          const ratio = sum / BUFFER_SIZE;
+          if (ratio >= THRESHOLD) {
+            li.textContent = (`⚠ ${fallCount}번째 낙상 주의: 최근 5프레임 중 ${Math.round(ratio * 100)}% 감지! ${startTime.toFixed(2)}s ~ ${time.toFixed(2)}s`);
+            if (ratio > THRESHOLD) li.style.color = "red";  // 원하는 색 지정
+          }
+          else {
+            li.textContent = `⚠ ${fallCount}번째 낙상 주의: ${startTime.toFixed(2)}s ~ ${time.toFixed(2)}s`;
+          }
+        }
+        else {
+          li.textContent = `⚠ ${fallCount}번째 낙상 주의: ${startTime.toFixed(2)}s ~ ${time.toFixed(2)}s`;
+        }
         li.style.cursor = 'pointer';
 
         li.onclick = async () => {
@@ -160,10 +174,11 @@ function setMode(mode) {
 
       eventSource.addEventListener("done", () => {
         eventSource.close();
+        predBuffer.length = 0;  // 최근 pred 초기화
+        fallCount = 0;          // 낙상 카운트 초기화
 
         // 🕒 처리 시간 계산
         const elapsed = (Date.now() - startTimeMs) / 1000;
-
         const li = document.createElement('li');
         li.textContent = `✅ 낙상 분석 완료 (총 소요 시간: ${elapsed.toFixed(2)}초)`;
         li.style.fontWeight = 'bold';
