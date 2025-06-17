@@ -4,8 +4,11 @@
 
 * **목적**: 노인의 낙상 사고를 실시간으로 감지, 조기 경고 및 이후 대응 강화
 * **동기**: 고령자 낙상사고는 매년 전체 고령자 안전사고의 60% 이상을 차지하며, 낙상사고 비율도 지속적으로 증가하고 있음
-* **접근**: 영상 → gray → Optical Flow 계산 → Optical Flow 크기 필터링 → Optical Flow 특징 CSV 추출 → ML 모델(XGBoost/TCN) 분류 → 실시간 웹 시스템(`web_system/app.py`)으로 결과 제공
+
 ![image](https://github.com/user-attachments/assets/9cedab5e-dcbc-4b2b-a7da-306451c862a0)
+
+* **접근**: 영상 → gray → Optical Flow 계산 → Optical Flow 크기 필터링 → Optical Flow 특징 CSV 추출 → ML 모델(XGBoost/TCN) 분류 → 실시간 웹 시스템(`web_system/app.py`)으로 결과 제공
+
 
 ---
 
