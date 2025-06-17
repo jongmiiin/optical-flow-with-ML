@@ -64,7 +64,24 @@ pip install -r requirements.txt
 python app.py
 ```
 
-* 이후 웹 접속 → 영상 업로드 → 결과(CSV/시각화) 확인 가능
+3. 📂 디렉터리 구조 (Project Structure):
+
+```
+web_system/
+├── app.py                  # Flask 웹 서버 진입점
+├── fall_detect.py          # 낙상 감지 로직 (Optical Flow + ML 모델 연동)
+├── models/
+│   ├── scaler.pkl           #표준화 값 저장 파일
+│   └── tcn_model_state.pth  # 학습된 TCN 분류 모델
+├── static/
+│   ├── app.js             # 클라이언트 JS (SSE, eventSource 등)
+│   ├── style.css          # 웹 스타일 정의
+│   ├── uploads/           # 사용자가 업로드한 비디오 또는 처리 파일
+├── templates/
+│   └── index.html         # 메인 HTML 템플릿
+└── requirements.txt       # 필요한 Python 패키지 목록(생성 필요)
+```
+* 이후 웹 접속 → 영상 업로드 → 낙상 판독 확인 가능
 
 ---
 
