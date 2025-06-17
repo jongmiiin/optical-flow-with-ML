@@ -70,6 +70,7 @@ pytorch-tcn
 2. 설치 및 실행:
 
 ```bash
+#venv
 cd web_system
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
