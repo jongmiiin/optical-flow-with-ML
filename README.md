@@ -27,12 +27,24 @@
 
 ```
 .
-├── web_system/
-│   └── app.py              # 웹 기반 실시간 추론
-├── _CSV.ipynb              # 영상 → CSV 변환
-├── _features.csv           # 변환 결과 피처 데이터
-├── _MODEL.ipynb            # CSV 기반 ML 모델 학습
-└── zip.ipynb               # AI‑Hub 데이터 압축 해제
+├── _CSV.ipynb                 # 영상 → Optical Flow → CSV 변환 노트북
+├── _features.csv              # Optical Flow 특징 요약 CSV 파일
+├── _MODEL.ipynb               # CSV 기반 머신러닝(XGBoost, TCN) 모델 학습 노트북
+├── zip.ipynb                  # AI-Hub 낙상 데이터 압축 해제 및 준비용 노트북
+├── web_system/                # 실시간 추론을 위한 Flask 웹 시스템
+│   ├── app.py                 # Flask 웹 서버 진입점 (SSE 및 API 처리)
+│   ├── fall_detect.py         # Optical Flow 계산 + ML 예측 로직 모듈
+│   ├── models/                # 사전 학습된 모델 저장 디렉토리
+│   │   ├── scaler.pkl             # 입력 정규화용 Scikit-learn StandardScaler
+│   │   └── tcn_model_state.pth    # 학습 완료된 TCN PyTorch 모델
+│   ├── static/                # 정적 파일 디렉토리
+│   │   ├── app.js                # 클라이언트 측 JS (SSE, 렌더링 등)
+│   │   ├── style.css             # 웹 UI 스타일 정의
+│   │   └── uploads/              # 업로드된 영상 파일 저장소
+│   ├── templates/             # HTML 템플릿 디렉토리
+│   │   └── index.html            # 메인 웹 인터페이스
+│   └── requirements.txt       # Python 패키지 목록 (생성 필요)
+
 ```
 
 ---
@@ -64,23 +76,6 @@ pip install -r requirements.txt
 python app.py
 ```
 
-3. 📂 디렉터리 구조 (Project Structure):
-
-```
-web_system/
-├── app.py                  # Flask 웹 서버 진입점
-├── fall_detect.py          # 낙상 감지 로직 (Optical Flow + ML 모델 연동)
-├── models/
-│   ├── scaler.pkl           #표준화 값 저장 파일
-│   └── tcn_model_state.pth  # 학습된 TCN 분류 모델
-├── static/
-│   ├── app.js             # 클라이언트 JS (SSE, eventSource 등)
-│   ├── style.css          # 웹 스타일 정의
-│   ├── uploads/           # 사용자가 업로드한 비디오 또는 처리 파일
-├── templates/
-│   └── index.html         # 메인 HTML 템플릿
-└── requirements.txt       # 필요한 Python 패키지 목록(생성 필요)
-```
 * 이후 웹 접속 → 영상 업로드 → 낙상 판독 확인 가능
 
 ---
