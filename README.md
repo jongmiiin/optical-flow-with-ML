@@ -37,7 +37,7 @@
 
 ---
 
-## 4. 🛠 설치 및 실행 (Installation & Usage)
+## 4. 🛠 web_system 설치 및 실행 (Installation & Usage)
 
 1. `requirements.txt` 생성 가이드:
 
@@ -52,6 +52,7 @@ joblib
 scikit-learn
 matplotlib
 ffmpeg-python
+pytorch-tcn
 ```
 
 2. 설치 및 실행:
